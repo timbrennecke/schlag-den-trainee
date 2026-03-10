@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface PunchAnimationProps {
   onComplete: () => void;
@@ -64,27 +64,25 @@ export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
     "appear" | "windup" | "impact" | "exit"
   >("appear");
 
-  const stableOnComplete = useCallback(onComplete, [onComplete]);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    // appear:  Trainee walks in and stands there (1.2s)
-    // windup:  Glove flies in from right (0.6s)
-    // impact:  Hit! Sound + flash (1.0s)
-    // exit:    Trainee flies away (1.2s)
     const t1 = setTimeout(() => setPhase("windup"), 1200);
     const t2 = setTimeout(() => {
       setPhase("impact");
       playPunchSound();
     }, 1800);
     const t3 = setTimeout(() => setPhase("exit"), 2800);
-    const t4 = setTimeout(() => stableOnComplete(), 4000);
+    const t4 = setTimeout(() => onCompleteRef.current(), 4000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
       clearTimeout(t4);
     };
-  }, [stableOnComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isHit = phase === "impact" || phase === "exit";
 

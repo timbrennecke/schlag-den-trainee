@@ -17,14 +17,17 @@ export default function BeamerPage() {
     ? data.games.filter((g) => g.winner === "group").length
     : 0;
 
+  const dismissPunch = useCallback(() => setShowPunch(false), []);
+
   useEffect(() => {
     if (data === null) return;
+    if (showPunch) return;
 
     if (prevGroupWinsRef.current !== null && groupWins > prevGroupWinsRef.current) {
       setShowPunch(true);
     }
     prevGroupWinsRef.current = groupWins;
-  }, [data, groupWins]);
+  }, [data, groupWins, showPunch]);
 
   if (!data) {
     return (
@@ -49,7 +52,7 @@ export default function BeamerPage() {
   return (
     <div className="min-h-screen bg-black flex flex-col overflow-hidden">
       {showPunch && (
-        <PunchAnimation onComplete={() => setShowPunch(false)} />
+        <PunchAnimation onComplete={dismissPunch} />
       )}
 
       {/* Title Bar */}
