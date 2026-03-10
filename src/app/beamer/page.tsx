@@ -142,6 +142,27 @@ export default function BeamerPage() {
     groupWins
   );
 
+  const recentEvents = games
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    .slice(0, 5)
+    .map((g) => {
+      const t = trainees.find((tr) => tr.id === g.trainee_id);
+      const name = t?.name ?? "Trainee";
+      if (g.winner === "trainee") {
+        return `${name} gewinnt gegen Gruppe ${g.group_number}`;
+      }
+      return `Gruppe ${g.group_number} schlägt ${name}`;
+    });
+
+  const tickerText =
+    recentEvents.length > 0
+      ? recentEvents.join("  +++  ")
+      : "Noch keine Ergebnisse";
+
   return (
     <div className="min-h-screen bg-black flex flex-col overflow-hidden">
       {currentPunch && (
@@ -163,11 +184,23 @@ export default function BeamerPage() {
       )}
 
       {/* Title Bar */}
-      <div className="flex items-center justify-between px-8 py-4">
-        <h1 className="text-4xl font-extrabold text-white tracking-tight">
+      <div className="flex items-center px-8 py-4 gap-6">
+        <h1 className="text-4xl font-extrabold text-white tracking-tight shrink-0">
           SCHLAG DEN <span className="text-amber-400">TRAINEE</span>
         </h1>
-        <div className="flex items-center gap-6">
+
+        {/* News Ticker */}
+        <div className="flex-1 overflow-hidden mx-4 border-l border-r border-gray-700 px-4">
+          <div className="ticker-wrap">
+            <span className="ticker-content text-lg font-semibold text-gray-300 whitespace-nowrap">
+              {tickerText}
+              {"  +++  "}
+              {tickerText}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6 shrink-0">
           {(punchQueue.length > 0 || victoryQueue.length > 0) && (
             <div className="text-amber-400 text-sm font-bold animate-pulse">
               +{punchQueue.length + victoryQueue.length} wartend
