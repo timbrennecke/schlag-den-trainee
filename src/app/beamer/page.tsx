@@ -1,14 +1,30 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAllData } from "@/lib/api";
 import { calculateOpponentDistance } from "@/lib/algorithm";
 import { usePolling } from "@/hooks/usePolling";
 import FlunkyballField from "@/components/FlunkyballField";
+import PunchAnimation from "@/components/PunchAnimation";
 
 export default function BeamerPage() {
   const fetcher = useCallback(() => fetchAllData(), []);
   const { data } = usePolling(fetcher, 3000);
+  const prevGroupWinsRef = useRef<number | null>(null);
+  const [showPunch, setShowPunch] = useState(false);
+
+  const groupWins = data
+    ? data.games.filter((g) => g.winner === "group").length
+    : 0;
+
+  useEffect(() => {
+    if (data === null) return;
+
+    if (prevGroupWinsRef.current !== null && groupWins > prevGroupWinsRef.current) {
+      setShowPunch(true);
+    }
+    prevGroupWinsRef.current = groupWins;
+  }, [data, groupWins]);
 
   if (!data) {
     return (
@@ -22,7 +38,6 @@ export default function BeamerPage() {
 
   const { config, trainees, games } = data;
   const traineeWins = games.filter((g) => g.winner === "trainee").length;
-  const groupWins = games.filter((g) => g.winner === "group").length;
   const totalGames = trainees.length * trainees.length;
   const gamesPlayed = games.length;
   const opponentDistance = calculateOpponentDistance(
@@ -33,6 +48,10 @@ export default function BeamerPage() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col overflow-hidden">
+      {showPunch && (
+        <PunchAnimation onComplete={() => setShowPunch(false)} />
+      )}
+
       {/* Title Bar */}
       <div className="flex items-center justify-between px-8 py-4">
         <h1 className="text-4xl font-extrabold text-white tracking-tight">
