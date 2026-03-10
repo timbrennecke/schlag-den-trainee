@@ -9,6 +9,8 @@ import {
   addTrainee,
   deleteTrainee,
   deleteAllGames,
+  uploadAvatar,
+  updateTrainee,
 } from "@/lib/api";
 import { calculateOpponentDistance } from "@/lib/algorithm";
 import Link from "next/link";
@@ -74,6 +76,21 @@ export default function AdminPage() {
       showMessage("Trainee entfernt!");
     } catch {
       showMessage("Fehler beim Entfernen!");
+    }
+  };
+
+  const handleAvatarUpload = async (
+    trainee: Trainee,
+    file: File
+  ) => {
+    try {
+      showMessage("Bild wird hochgeladen...");
+      const publicUrl = await uploadAvatar(trainee.id, file);
+      await updateTrainee(trainee.id, { avatar_url: publicUrl });
+      await loadData();
+      showMessage(`Bild fuer ${trainee.name} gespeichert!`);
+    } catch {
+      showMessage("Fehler beim Hochladen!");
     }
   };
 
@@ -292,20 +309,45 @@ export default function AdminPage() {
                   className="flex items-center justify-between py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-sm font-bold">
-                      {t.sort_order}
-                    </span>
-                    <span className="text-gray-900 font-medium">{t.name}</span>
-                    <span className="text-gray-400 text-sm">
-                      spielt gegen alle {trainees.length} Gruppen
-                    </span>
+                    {t.avatar_url ? (
+                      <img
+                        src={t.avatar_url}
+                        alt={t.name}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-blue-300"
+                      />
+                    ) : (
+                      <span className="w-10 h-10 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-sm font-bold">
+                        {t.sort_order}
+                      </span>
+                    )}
+                    <div>
+                      <span className="text-gray-900 font-medium">{t.name}</span>
+                      <span className="text-gray-400 text-sm ml-2">
+                        vs. alle {trainees.length} Gruppen
+                      </span>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteTrainee(t.id)}
-                    className="text-red-500 hover:text-red-700 text-sm font-medium cursor-pointer"
-                  >
-                    Entfernen
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <label className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg cursor-pointer font-medium">
+                      {t.avatar_url ? "Bild aendern" : "Bild hochladen"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleAvatarUpload(t, file);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    <button
+                      onClick={() => handleDeleteTrainee(t.id)}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium cursor-pointer"
+                    >
+                      Entfernen
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

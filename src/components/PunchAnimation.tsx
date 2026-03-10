@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 
 interface PunchAnimationProps {
   onComplete: () => void;
+  avatarUrls?: string[];
 }
 
 function playPunchSound() {
@@ -59,10 +60,18 @@ function playPunchSound() {
   }
 }
 
-export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
+export default function PunchAnimation({
+  onComplete,
+  avatarUrls,
+}: PunchAnimationProps) {
   const [phase, setPhase] = useState<
     "appear" | "windup" | "impact" | "exit"
   >("appear");
+
+  const [randomAvatar] = useState(() => {
+    if (!avatarUrls || avatarUrls.length === 0) return null;
+    return avatarUrls[Math.floor(Math.random() * avatarUrls.length)];
+  });
 
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -182,36 +191,63 @@ export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
           <rect x="50" y="85" width="60" height="90" rx="12" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="3" />
           {/* Head */}
           <circle cx="80" cy="55" r="38" fill="#fcd34d" stroke="#f59e0b" strokeWidth="3" />
-          {/* Eyes */}
-          {isHit ? (
+          {randomAvatar ? (
             <>
-              <text x="60" y="55" fontSize="20" fontWeight="bold" fill="#111">X</text>
-              <text x="86" y="55" fontSize="20" fontWeight="bold" fill="#111">X</text>
-            </>
-          ) : phase === "windup" ? (
-            <>
-              {/* Worried eyes */}
-              <circle cx="67" cy="46" r="6" fill="white" stroke="#111" strokeWidth="2" />
-              <circle cx="93" cy="46" r="6" fill="white" stroke="#111" strokeWidth="2" />
-              <circle cx="69" cy="46" r="3" fill="#111" />
-              <circle cx="95" cy="46" r="3" fill="#111" />
-              {/* Eyebrows up */}
-              <line x1="58" y1="34" x2="72" y2="36" stroke="#111" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="88" y1="36" x2="102" y2="34" stroke="#111" strokeWidth="2.5" strokeLinecap="round" />
+              <defs>
+                <clipPath id="head-clip">
+                  <circle cx="80" cy="55" r="36" />
+                </clipPath>
+              </defs>
+              <image
+                href={randomAvatar}
+                x="42"
+                y="17"
+                width="76"
+                height="76"
+                clipPath="url(#head-clip)"
+                preserveAspectRatio="xMidYMid slice"
+              />
+              <circle cx="80" cy="55" r="38" fill="none" stroke="#f59e0b" strokeWidth="3" />
+              {isHit && (
+                <>
+                  <circle cx="80" cy="55" r="38" fill="rgba(0,0,0,0.3)" />
+                  <text x="60" y="58" fontSize="22" fontWeight="bold" fill="white" stroke="#000" strokeWidth="1">X</text>
+                  <text x="88" y="58" fontSize="22" fontWeight="bold" fill="white" stroke="#000" strokeWidth="1">X</text>
+                </>
+              )}
             </>
           ) : (
             <>
-              <circle cx="67" cy="48" r="5" fill="#111" />
-              <circle cx="93" cy="48" r="5" fill="#111" />
+              {/* Eyes */}
+              {isHit ? (
+                <>
+                  <text x="60" y="55" fontSize="20" fontWeight="bold" fill="#111">X</text>
+                  <text x="86" y="55" fontSize="20" fontWeight="bold" fill="#111">X</text>
+                </>
+              ) : phase === "windup" ? (
+                <>
+                  <circle cx="67" cy="46" r="6" fill="white" stroke="#111" strokeWidth="2" />
+                  <circle cx="93" cy="46" r="6" fill="white" stroke="#111" strokeWidth="2" />
+                  <circle cx="69" cy="46" r="3" fill="#111" />
+                  <circle cx="95" cy="46" r="3" fill="#111" />
+                  <line x1="58" y1="34" x2="72" y2="36" stroke="#111" strokeWidth="2.5" strokeLinecap="round" />
+                  <line x1="88" y1="36" x2="102" y2="34" stroke="#111" strokeWidth="2.5" strokeLinecap="round" />
+                </>
+              ) : (
+                <>
+                  <circle cx="67" cy="48" r="5" fill="#111" />
+                  <circle cx="93" cy="48" r="5" fill="#111" />
+                </>
+              )}
+              {/* Mouth */}
+              {isHit ? (
+                <ellipse cx="80" cy="72" rx="12" ry="7" fill="#111" />
+              ) : phase === "windup" ? (
+                <ellipse cx="80" cy="72" rx="8" ry="5" fill="#111" />
+              ) : (
+                <path d="M68 68 Q80 78 92 68" stroke="#111" strokeWidth="2.5" fill="none" />
+              )}
             </>
-          )}
-          {/* Mouth */}
-          {isHit ? (
-            <ellipse cx="80" cy="72" rx="12" ry="7" fill="#111" />
-          ) : phase === "windup" ? (
-            <ellipse cx="80" cy="72" rx="8" ry="5" fill="#111" />
-          ) : (
-            <path d="M68 68 Q80 78 92 68" stroke="#111" strokeWidth="2.5" fill="none" />
           )}
           {/* "T" on shirt */}
           <text x="68" y="142" fontSize="28" fontWeight="bold" fill="white">T</text>

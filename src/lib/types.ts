@@ -9,6 +9,7 @@ export interface Trainee {
   id: string;
   name: string;
   sort_order: number;
+  avatar_url: string | null;
   created_at: string;
 }
 

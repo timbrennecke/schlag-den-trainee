@@ -1,11 +1,11 @@
 "use client";
 
-import { Config } from "@/lib/types";
+import { Config, Trainee } from "@/lib/types";
 
 interface FlunkyballFieldProps {
   config: Config;
   opponentDistance: number;
-  totalTrainees: number;
+  trainees: Trainee[];
   traineeWins: number;
   groupWins: number;
 }
@@ -13,7 +13,7 @@ interface FlunkyballFieldProps {
 export default function FlunkyballField({
   config,
   opponentDistance,
-  totalTrainees,
+  trainees,
   traineeWins,
   groupWins,
 }: FlunkyballFieldProps) {
@@ -22,8 +22,8 @@ export default function FlunkyballField({
   const fieldPadding = 100;
   const bottleX = svgWidth / 2;
   const bottleY = svgHeight / 2;
+  const playerRadius = 20;
 
-  // Dynamic scaling: use the larger of the two max distances with 15% breathing room
   const maxDisplayDistance =
     Math.max(config.opponent_base_distance, config.trainee_distance) * 1.15;
   const availableHalfWidth = svgWidth / 2 - fieldPadding;
@@ -33,7 +33,7 @@ export default function FlunkyballField({
   const opponentX = bottleX + opponentDistance * pxPerMeter;
   const opponentStartX = bottleX + config.opponent_base_distance * pxPerMeter;
 
-  const playerCount = Math.max(totalTrainees, 3);
+  const playerCount = Math.max(trainees.length, 3);
   const playerSpacing = Math.min(
     (svgHeight - 200) / (playerCount - 1),
     60
@@ -41,7 +41,6 @@ export default function FlunkyballField({
   const totalPlayersHeight = (playerCount - 1) * playerSpacing;
   const playersStartY = bottleY - totalPlayersHeight / 2;
 
-  // Distance arrow between the two teams
   const arrowY = svgHeight - 50;
 
   return (
@@ -50,6 +49,19 @@ export default function FlunkyballField({
       className="w-full h-full"
       style={{ maxHeight: "70vh" }}
     >
+      {/* Clip path definitions for circular images */}
+      <defs>
+        {trainees.map((t, i) => (
+          <clipPath key={`clip-t-${i}`} id={`clip-trainee-${i}`}>
+            <circle
+              cx={traineeX}
+              cy={playersStartY + i * playerSpacing}
+              r={playerRadius}
+            />
+          </clipPath>
+        ))}
+      </defs>
+
       {/* Field background */}
       <rect
         x="20"
@@ -161,31 +173,57 @@ export default function FlunkyballField({
       {/* Trainee players (left side) */}
       {Array.from({ length: playerCount }, (_, i) => {
         const cy = playersStartY + i * playerSpacing;
+        const trainee = trainees[i];
+        const hasAvatar = trainee?.avatar_url;
         return (
           <g key={`trainee-${i}`}>
+            {/* Background circle */}
             <circle
               cx={traineeX}
               cy={cy}
-              r="16"
+              r={playerRadius}
               fill="#3b82f6"
               stroke="#1d4ed8"
-              strokeWidth="2"
+              strokeWidth="2.5"
             />
-            <text
-              x={traineeX}
-              y={cy + 5}
-              textAnchor="middle"
-              fill="white"
-              fontSize="12"
-              fontWeight="bold"
-            >
-              T{i + 1}
-            </text>
+            {hasAvatar ? (
+              <image
+                href={trainee.avatar_url!}
+                x={traineeX - playerRadius}
+                y={cy - playerRadius}
+                width={playerRadius * 2}
+                height={playerRadius * 2}
+                clipPath={`url(#clip-trainee-${i})`}
+                preserveAspectRatio="xMidYMid slice"
+              />
+            ) : (
+              <text
+                x={traineeX}
+                y={cy + 5}
+                textAnchor="middle"
+                fill="white"
+                fontSize="12"
+                fontWeight="bold"
+              >
+                T{i + 1}
+              </text>
+            )}
+            {/* Border on top of image */}
+            {hasAvatar && (
+              <circle
+                cx={traineeX}
+                cy={cy}
+                r={playerRadius}
+                fill="none"
+                stroke="#1d4ed8"
+                strokeWidth="2.5"
+              />
+            )}
           </g>
         );
       })}
 
-      {/* Opponent players (right side) - with smooth transition */}
+      {/* Opponent players (right side) */}
       {Array.from({ length: playerCount }, (_, i) => {
         const cy = playersStartY + i * playerSpacing;
         return (
@@ -196,10 +234,10 @@ export default function FlunkyballField({
             <circle
               cx={opponentX}
               cy={cy}
-              r="16"
+              r={playerRadius}
               fill="#f59e0b"
               stroke="#b45309"
-              strokeWidth="2"
+              strokeWidth="2.5"
               className="transition-all duration-[1500ms] ease-out"
             />
             <text
@@ -243,7 +281,6 @@ export default function FlunkyballField({
 
       {/* Distance arrow at the bottom */}
       <g>
-        {/* Arrow line */}
         <line
           x1={traineeX}
           y1={arrowY}
@@ -253,7 +290,6 @@ export default function FlunkyballField({
           strokeWidth="1.5"
           className="transition-all duration-[1500ms] ease-out"
         />
-        {/* Left tick */}
         <line
           x1={traineeX}
           y1={arrowY - 6}
@@ -262,7 +298,6 @@ export default function FlunkyballField({
           stroke="#60a5fa"
           strokeWidth="2"
         />
-        {/* Right tick */}
         <line
           x1={opponentX}
           y1={arrowY - 6}
@@ -272,7 +307,6 @@ export default function FlunkyballField({
           strokeWidth="2"
           className="transition-all duration-[1500ms] ease-out"
         />
-        {/* Bottle tick */}
         <line
           x1={bottleX}
           y1={arrowY - 4}

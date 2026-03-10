@@ -52,7 +52,12 @@ export default function BeamerPage() {
   return (
     <div className="min-h-screen bg-black flex flex-col overflow-hidden">
       {showPunch && (
-        <PunchAnimation onComplete={dismissPunch} />
+        <PunchAnimation
+          onComplete={dismissPunch}
+          avatarUrls={trainees
+            .map((t) => t.avatar_url)
+            .filter((url): url is string => url !== null)}
+        />
       )}
 
       {/* Title Bar */}
@@ -75,7 +80,7 @@ export default function BeamerPage() {
         <FlunkyballField
           config={config}
           opponentDistance={opponentDistance}
-          totalTrainees={trainees.length}
+          trainees={trainees}
           traineeWins={traineeWins}
           groupWins={groupWins}
         />

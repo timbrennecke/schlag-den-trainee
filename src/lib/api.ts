@@ -46,9 +46,42 @@ export async function addTrainee(
   return data;
 }
 
+export async function updateTrainee(
+  id: string,
+  updates: Partial<Pick<Trainee, "name" | "avatar_url">>
+): Promise<Trainee> {
+  const { data, error } = await supabase
+    .from("trainees")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteTrainee(id: string): Promise<void> {
   const { error } = await supabase.from("trainees").delete().eq("id", id);
   if (error) throw error;
+}
+
+export async function uploadAvatar(
+  traineeId: string,
+  file: File
+): Promise<string> {
+  const ext = file.name.split(".").pop();
+  const path = `${traineeId}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("avatars")
+    .upload(path, file, { upsert: true });
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage
+    .from("avatars")
+    .getPublicUrl(path);
+
+  return data.publicUrl;
 }
 
 export async function fetchGames(): Promise<Game[]> {
