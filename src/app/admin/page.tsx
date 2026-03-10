@@ -10,6 +10,7 @@ import {
   deleteTrainee,
   deleteAllGames,
 } from "@/lib/api";
+import { calculateOpponentDistance } from "@/lib/algorithm";
 import Link from "next/link";
 
 export default function AdminPage() {
@@ -197,6 +198,58 @@ export default function AdminPage() {
               />
             </div>
           </div>
+          {/* Distance Simulator */}
+          {trainees.length > 0 && (() => {
+            const n = trainees.length;
+            const totalGames = n * n;
+            const scenarios = [
+              { label: "Alle Trainees gewinnen", groupWins: 0 },
+              { label: "25% Gegner-Siege", groupWins: Math.round(totalGames * 0.25) },
+              { label: "Draw (50/50)", groupWins: Math.round(totalGames * 0.5) },
+              { label: "75% Gegner-Siege", groupWins: Math.round(totalGames * 0.75) },
+              { label: "Alle Gegner gewinnen", groupWins: totalGames },
+            ];
+            return (
+              <div className="mt-5 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                  Distanz-Vorschau (bei {totalGames} Spielen, {n} Trainees)
+                </h3>
+                <div className="space-y-2">
+                  {scenarios.map((s) => {
+                    const dist = calculateOpponentDistance(config, n, s.groupWins);
+                    const maxRange = config.opponent_base_distance - 2;
+                    const progress = Math.max(0, Math.min(100,
+                      ((config.opponent_base_distance - dist) / maxRange) * 100
+                    ));
+                    const isDraw = s.label.includes("Draw");
+                    return (
+                      <div key={s.label}>
+                        <div className="flex items-center justify-between text-xs mb-0.5">
+                          <span className={`${isDraw ? "font-bold text-gray-900" : "text-gray-600"}`}>
+                            {s.label} ({s.groupWins}/{totalGames})
+                          </span>
+                          <span className={`font-mono ${isDraw ? "font-bold text-amber-700 text-sm" : "text-gray-700"}`}>
+                            {dist.toFixed(1)}m
+                          </span>
+                        </div>
+                        <div className="relative h-2 bg-gray-200 rounded-full">
+                          <div
+                            className={`absolute left-0 top-0 h-full rounded-full transition-all duration-300 ${isDraw ? "bg-amber-500" : "bg-amber-400/70"}`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between mt-2 text-xs text-gray-400">
+                  <span>{config.opponent_base_distance}m (Start)</span>
+                  <span>{config.trainee_distance}m (Trainee) | 2m (Min)</span>
+                </div>
+              </div>
+            );
+          })()}
+
           <button
             onClick={handleConfigSave}
             disabled={saving}
