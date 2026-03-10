@@ -167,7 +167,7 @@ export default function BeamerPage() {
   const tickerText =
     filledEvents.length > 0
       ? filledEvents.join("  +++  ")
-      : "Noch keine Ergebnisse";
+      : Array(5).fill("Noch keine Ergebnisse").join("  +++  ");
 
   return (
     <div className="min-h-screen bg-black flex flex-col overflow-hidden">
