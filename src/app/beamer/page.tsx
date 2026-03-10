@@ -6,28 +6,66 @@ import { calculateOpponentDistance } from "@/lib/algorithm";
 import { usePolling } from "@/hooks/usePolling";
 import FlunkyballField from "@/components/FlunkyballField";
 import PunchAnimation from "@/components/PunchAnimation";
+import { Game, Trainee } from "@/lib/types";
+
+interface PunchEntry {
+  traineeName: string;
+  avatarUrl: string | null;
+}
+
+function findLosingTrainee(
+  game: Game,
+  trainees: Trainee[]
+): PunchEntry | null {
+  const trainee = trainees.find((t) => t.id === game.trainee_id);
+  if (!trainee) return null;
+  return {
+    traineeName: trainee.name,
+    avatarUrl: trainee.avatar_url,
+  };
+}
 
 export default function BeamerPage() {
   const fetcher = useCallback(() => fetchAllData(), []);
   const { data } = usePolling(fetcher, 3000);
-  const prevGroupWinsRef = useRef<number | null>(null);
-  const [showPunch, setShowPunch] = useState(false);
 
-  const groupWins = data
-    ? data.games.filter((g) => g.winner === "group").length
-    : 0;
-
-  const dismissPunch = useCallback(() => setShowPunch(false), []);
+  const seenGameIdsRef = useRef<Set<string> | null>(null);
+  const [punchQueue, setPunchQueue] = useState<PunchEntry[]>([]);
+  const [currentPunch, setCurrentPunch] = useState<PunchEntry | null>(null);
 
   useEffect(() => {
-    if (data === null) return;
-    if (showPunch) return;
+    if (!data) return;
 
-    if (prevGroupWinsRef.current !== null && groupWins > prevGroupWinsRef.current) {
-      setShowPunch(true);
+    const { games, trainees } = data;
+    const groupWinGames = games.filter((g) => g.winner === "group");
+    const currentIds = new Set(groupWinGames.map((g) => g.id));
+
+    if (seenGameIdsRef.current !== null) {
+      const newLosses: PunchEntry[] = [];
+      for (const game of groupWinGames) {
+        if (!seenGameIdsRef.current.has(game.id)) {
+          const entry = findLosingTrainee(game, trainees);
+          if (entry) newLosses.push(entry);
+        }
+      }
+      if (newLosses.length > 0) {
+        setPunchQueue((prev) => [...prev, ...newLosses]);
+      }
     }
-    prevGroupWinsRef.current = groupWins;
-  }, [data, groupWins, showPunch]);
+
+    seenGameIdsRef.current = currentIds;
+  }, [data]);
+
+  useEffect(() => {
+    if (currentPunch === null && punchQueue.length > 0) {
+      setCurrentPunch(punchQueue[0]);
+      setPunchQueue((prev) => prev.slice(1));
+    }
+  }, [currentPunch, punchQueue]);
+
+  const dismissPunch = useCallback(() => {
+    setCurrentPunch(null);
+  }, []);
 
   if (!data) {
     return (
@@ -41,6 +79,7 @@ export default function BeamerPage() {
 
   const { config, trainees, games } = data;
   const traineeWins = games.filter((g) => g.winner === "trainee").length;
+  const groupWins = games.filter((g) => g.winner === "group").length;
   const totalGames = trainees.length * trainees.length;
   const gamesPlayed = games.length;
   const opponentDistance = calculateOpponentDistance(
@@ -51,12 +90,12 @@ export default function BeamerPage() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col overflow-hidden">
-      {showPunch && (
+      {currentPunch && (
         <PunchAnimation
+          key={`${currentPunch.traineeName}-${Date.now()}`}
           onComplete={dismissPunch}
-          avatarUrls={trainees
-            .map((t) => t.avatar_url)
-            .filter((url): url is string => url !== null)}
+          avatarUrl={currentPunch.avatarUrl}
+          traineeName={currentPunch.traineeName}
         />
       )}
 
@@ -66,6 +105,11 @@ export default function BeamerPage() {
           SCHLAG DEN <span className="text-amber-400">TRAINEE</span>
         </h1>
         <div className="flex items-center gap-6">
+          {punchQueue.length > 0 && (
+            <div className="text-amber-400 text-sm font-bold animate-pulse">
+              +{punchQueue.length} wartend
+            </div>
+          )}
           <div className="text-right">
             <span className="text-gray-500 text-sm block">Fortschritt</span>
             <span className="text-white text-xl font-bold">

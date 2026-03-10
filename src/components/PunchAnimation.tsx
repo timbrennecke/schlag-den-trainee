@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from "react";
 
 interface PunchAnimationProps {
   onComplete: () => void;
-  avatarUrls?: string[];
+  avatarUrl?: string | null;
+  traineeName?: string;
 }
 
 function playPunchSound() {
@@ -62,16 +63,12 @@ function playPunchSound() {
 
 export default function PunchAnimation({
   onComplete,
-  avatarUrls,
+  avatarUrl,
+  traineeName,
 }: PunchAnimationProps) {
   const [phase, setPhase] = useState<
     "appear" | "windup" | "impact" | "exit"
   >("appear");
-
-  const [randomAvatar] = useState(() => {
-    if (!avatarUrls || avatarUrls.length === 0) return null;
-    return avatarUrls[Math.floor(Math.random() * avatarUrls.length)];
-  });
 
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -124,6 +121,11 @@ export default function PunchAnimation({
         }`}
         style={{ zIndex: 52 }}
       >
+        {traineeName && (
+          <p className="text-4xl font-bold text-amber-400 drop-shadow-[0_0_20px_rgba(0,0,0,0.8)] mb-2">
+            {traineeName}
+          </p>
+        )}
         <p className="text-8xl font-black text-white drop-shadow-[0_0_40px_rgba(255,0,0,0.8)] tracking-wider">
           GESCHLAGEN!
         </p>
@@ -191,7 +193,7 @@ export default function PunchAnimation({
           <rect x="50" y="85" width="60" height="90" rx="12" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="3" />
           {/* Head */}
           <circle cx="80" cy="55" r="38" fill="#fcd34d" stroke="#f59e0b" strokeWidth="3" />
-          {randomAvatar ? (
+          {avatarUrl ? (
             <>
               <defs>
                 <clipPath id="head-clip">
@@ -199,7 +201,7 @@ export default function PunchAnimation({
                 </clipPath>
               </defs>
               <image
-                href={randomAvatar}
+                href={avatarUrl}
                 x="42"
                 y="17"
                 width="76"
