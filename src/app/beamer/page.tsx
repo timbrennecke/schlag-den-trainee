@@ -32,6 +32,7 @@ export default function BeamerPage() {
   const seenGameIdsRef = useRef<Set<string> | null>(null);
   const [punchQueue, setPunchQueue] = useState<PunchEntry[]>([]);
   const [currentPunch, setCurrentPunch] = useState<PunchEntry | null>(null);
+  const punchKeyRef = useRef(0);
 
   useEffect(() => {
     if (!data) return;
@@ -58,6 +59,7 @@ export default function BeamerPage() {
 
   useEffect(() => {
     if (currentPunch === null && punchQueue.length > 0) {
+      punchKeyRef.current += 1;
       setCurrentPunch(punchQueue[0]);
       setPunchQueue((prev) => prev.slice(1));
     }
@@ -92,7 +94,7 @@ export default function BeamerPage() {
     <div className="min-h-screen bg-black flex flex-col overflow-hidden">
       {currentPunch && (
         <PunchAnimation
-          key={`${currentPunch.traineeName}-${Date.now()}`}
+          key={punchKeyRef.current}
           onComplete={dismissPunch}
           avatarUrl={currentPunch.avatarUrl}
           traineeName={currentPunch.traineeName}
