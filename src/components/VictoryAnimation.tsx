@@ -55,40 +55,125 @@ function playVictoryFanfare() {
   }
 }
 
-function TraineeAvatar({
+function TraineeFigure({
   name,
   avatarUrl,
-  size,
+  headSize,
   className,
+  isWinner,
 }: {
   name: string;
   avatarUrl: string | null;
-  size: number;
+  headSize: number;
   className?: string;
+  isWinner?: boolean;
 }) {
+  const bodyHeight = headSize * 1.1;
+  const bodyWidth = headSize * 0.85;
+  const armWidth = headSize * 0.3;
+  const legWidth = headSize * 0.32;
+  const legHeight = headSize * 0.55;
+  const totalWidth = bodyWidth + armWidth * 2 + 10;
+
+  const shirtColor = isWinner ? "#f59e0b" : "#3b82f6";
+  const pantsColor = "#1e3a5f";
+
   return (
     <div
       className={`flex flex-col items-center ${className ?? ""}`}
-      style={{ width: size + 20 }}
+      style={{ width: Math.max(totalWidth, headSize + 20) }}
     >
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt={name}
-          className="rounded-full object-cover border-3 border-blue-400"
-          style={{ width: size, height: size }}
+      <svg
+        width={totalWidth}
+        height={headSize + bodyHeight + legHeight + 4}
+        viewBox={`0 0 ${totalWidth} ${headSize + bodyHeight + legHeight + 4}`}
+      >
+        {/* Arms */}
+        <rect
+          x={totalWidth / 2 - bodyWidth / 2 - armWidth}
+          y={headSize + 4}
+          width={armWidth}
+          height={bodyHeight * 0.7}
+          rx={armWidth / 2}
+          fill="#f5c6a0"
         />
-      ) : (
-        <div
-          className="rounded-full bg-blue-600 flex items-center justify-center text-white font-bold border-3 border-blue-400"
-          style={{ width: size, height: size, fontSize: size * 0.35 }}
-        >
-          {name.charAt(0).toUpperCase()}
-        </div>
-      )}
+        <rect
+          x={totalWidth / 2 + bodyWidth / 2}
+          y={headSize + 4}
+          width={armWidth}
+          height={bodyHeight * 0.7}
+          rx={armWidth / 2}
+          fill="#f5c6a0"
+        />
+
+        {/* Body / shirt */}
+        <rect
+          x={totalWidth / 2 - bodyWidth / 2}
+          y={headSize + 2}
+          width={bodyWidth}
+          height={bodyHeight}
+          rx={bodyWidth * 0.2}
+          fill={shirtColor}
+        />
+
+        {/* Legs / pants */}
+        <rect
+          x={totalWidth / 2 - bodyWidth / 2 + 2}
+          y={headSize + bodyHeight}
+          width={legWidth}
+          height={legHeight}
+          rx={legWidth / 3}
+          fill={pantsColor}
+        />
+        <rect
+          x={totalWidth / 2 + bodyWidth / 2 - legWidth - 2}
+          y={headSize + bodyHeight}
+          width={legWidth}
+          height={legHeight}
+          rx={legWidth / 3}
+          fill={pantsColor}
+        />
+
+        {/* Head */}
+        <defs>
+          <clipPath id={`head-${name}`}>
+            <circle
+              cx={totalWidth / 2}
+              cy={headSize / 2}
+              r={headSize / 2 - 2}
+            />
+          </clipPath>
+        </defs>
+        {avatarUrl ? (
+          <image
+            href={avatarUrl}
+            x={totalWidth / 2 - headSize / 2 + 2}
+            y={2}
+            width={headSize - 4}
+            height={headSize - 4}
+            clipPath={`url(#head-${name})`}
+            preserveAspectRatio="xMidYMid slice"
+          />
+        ) : (
+          <circle
+            cx={totalWidth / 2}
+            cy={headSize / 2}
+            r={headSize / 2 - 2}
+            fill="#f5c6a0"
+          />
+        )}
+        <circle
+          cx={totalWidth / 2}
+          cy={headSize / 2}
+          r={headSize / 2 - 1}
+          fill="none"
+          stroke={isWinner ? "#fbbf24" : "#60a5fa"}
+          strokeWidth={2}
+        />
+      </svg>
       <span
-        className="text-white font-bold mt-1 text-center truncate w-full"
-        style={{ fontSize: Math.max(10, size * 0.22) }}
+        className="text-white font-bold text-center truncate w-full mt-0.5"
+        style={{ fontSize: Math.max(10, headSize * 0.24) }}
       >
         {name}
       </span>
@@ -209,7 +294,7 @@ export default function VictoryAnimation({
         }`}
       >
         <p className="text-6xl font-black text-white drop-shadow-[0_0_30px_rgba(59,130,246,0.6)] tracking-wider">
-          TRAINEE SIEGT!
+          <span className="text-amber-400">{winnerName}</span> gewinnt eine Runde!
         </p>
       </div>
 
@@ -234,15 +319,15 @@ export default function VictoryAnimation({
             <div
               className={`transition-all duration-500 ${
                 showCrown
-                  ? "ring-4 ring-amber-400 rounded-full shadow-[0_0_40px_rgba(251,191,36,0.5)]"
+                  ? "drop-shadow-[0_0_30px_rgba(251,191,36,0.5)]"
                   : ""
               }`}
-              style={{ borderRadius: "50%" }}
             >
-              <TraineeAvatar
+              <TraineeFigure
                 name={winnerName}
                 avatarUrl={winnerAvatar}
-                size={100}
+                headSize={90}
+                isWinner
               />
             </div>
           </div>
@@ -265,25 +350,16 @@ export default function VictoryAnimation({
             }}
           >
             {row.map((t, i) => (
-              <TraineeAvatar
+              <TraineeFigure
                 key={`${rowIdx}-${i}`}
                 name={t.name}
                 avatarUrl={t.avatarUrl}
-                size={70}
+                headSize={60}
               />
             ))}
           </div>
         ))}
       </div>
-
-      {/* Winner name highlight */}
-      {showCrown && (
-        <div className="relative z-10 mt-6 text-center">
-          <p className="text-3xl font-extrabold text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]">
-            {winnerName}
-          </p>
-        </div>
-      )}
 
       <style jsx>{`
         @keyframes confetti-fall {
