@@ -158,9 +158,15 @@ export default function BeamerPage() {
       return `Gruppe ${g.group_number} schlägt ${name}`;
     });
 
+  let filledEvents = recentEvents;
+  if (filledEvents.length > 0 && filledEvents.length < 5) {
+    while (filledEvents.length < 5) {
+      filledEvents = [...filledEvents, ...recentEvents].slice(0, 5);
+    }
+  }
   const tickerText =
-    recentEvents.length > 0
-      ? recentEvents.join("  +++  ")
+    filledEvents.length > 0
+      ? filledEvents.join("  +++  ")
       : "Noch keine Ergebnisse";
 
   return (
