@@ -6,11 +6,18 @@ import { calculateOpponentDistance } from "@/lib/algorithm";
 import { usePolling } from "@/hooks/usePolling";
 import FlunkyballField from "@/components/FlunkyballField";
 import PunchAnimation from "@/components/PunchAnimation";
+import VictoryAnimation from "@/components/VictoryAnimation";
 import { Game, Trainee } from "@/lib/types";
 
 interface PunchEntry {
   traineeName: string;
   avatarUrl: string | null;
+}
+
+interface VictoryEntry {
+  winnerName: string;
+  winnerAvatar: string | null;
+  allTrainees: { name: string; avatarUrl: string | null }[];
 }
 
 function findLosingTrainee(
@@ -25,6 +32,22 @@ function findLosingTrainee(
   };
 }
 
+function findWinningTrainee(
+  game: Game,
+  trainees: Trainee[]
+): VictoryEntry | null {
+  const winner = trainees.find((t) => t.id === game.trainee_id);
+  if (!winner) return null;
+  return {
+    winnerName: winner.name,
+    winnerAvatar: winner.avatar_url,
+    allTrainees: trainees.map((t) => ({
+      name: t.name,
+      avatarUrl: t.avatar_url,
+    })),
+  };
+}
+
 export default function BeamerPage() {
   const fetcher = useCallback(() => fetchAllData(), []);
   const { data } = usePolling(fetcher, 3000);
@@ -34,39 +57,73 @@ export default function BeamerPage() {
   const [currentPunch, setCurrentPunch] = useState<PunchEntry | null>(null);
   const punchKeyRef = useRef(0);
 
+  const [victoryQueue, setVictoryQueue] = useState<VictoryEntry[]>([]);
+  const [currentVictory, setCurrentVictory] = useState<VictoryEntry | null>(
+    null
+  );
+  const victoryKeyRef = useRef(0);
+
   useEffect(() => {
     if (!data) return;
 
     const { games, trainees } = data;
-    const groupWinGames = games.filter((g) => g.winner === "group");
-    const currentIds = new Set(groupWinGames.map((g) => g.id));
+    const allCurrentIds = new Set(games.map((g) => g.id));
 
     if (seenGameIdsRef.current !== null) {
-      const newLosses: PunchEntry[] = [];
-      for (const game of groupWinGames) {
+      const newPunches: PunchEntry[] = [];
+      const newVictories: VictoryEntry[] = [];
+
+      for (const game of games) {
         if (!seenGameIdsRef.current.has(game.id)) {
-          const entry = findLosingTrainee(game, trainees);
-          if (entry) newLosses.push(entry);
+          if (game.winner === "group") {
+            const entry = findLosingTrainee(game, trainees);
+            if (entry) newPunches.push(entry);
+          } else {
+            const entry = findWinningTrainee(game, trainees);
+            if (entry) newVictories.push(entry);
+          }
         }
       }
-      if (newLosses.length > 0) {
-        setPunchQueue((prev) => [...prev, ...newLosses]);
+      if (newPunches.length > 0) {
+        setPunchQueue((prev) => [...prev, ...newPunches]);
+      }
+      if (newVictories.length > 0) {
+        setVictoryQueue((prev) => [...prev, ...newVictories]);
       }
     }
 
-    seenGameIdsRef.current = currentIds;
+    seenGameIdsRef.current = allCurrentIds;
   }, [data]);
 
+  // Punch queue processor
   useEffect(() => {
-    if (currentPunch === null && punchQueue.length > 0) {
+    if (currentPunch === null && currentVictory === null && punchQueue.length > 0) {
       punchKeyRef.current += 1;
       setCurrentPunch(punchQueue[0]);
       setPunchQueue((prev) => prev.slice(1));
     }
-  }, [currentPunch, punchQueue]);
+  }, [currentPunch, currentVictory, punchQueue]);
+
+  // Victory queue processor (only plays when no punch is active)
+  useEffect(() => {
+    if (
+      currentPunch === null &&
+      currentVictory === null &&
+      punchQueue.length === 0 &&
+      victoryQueue.length > 0
+    ) {
+      victoryKeyRef.current += 1;
+      setCurrentVictory(victoryQueue[0]);
+      setVictoryQueue((prev) => prev.slice(1));
+    }
+  }, [currentPunch, currentVictory, punchQueue, victoryQueue]);
 
   const dismissPunch = useCallback(() => {
     setCurrentPunch(null);
+  }, []);
+
+  const dismissVictory = useCallback(() => {
+    setCurrentVictory(null);
   }, []);
 
   if (!data) {
@@ -101,15 +158,25 @@ export default function BeamerPage() {
         />
       )}
 
+      {currentVictory && (
+        <VictoryAnimation
+          key={victoryKeyRef.current}
+          onComplete={dismissVictory}
+          winnerName={currentVictory.winnerName}
+          winnerAvatar={currentVictory.winnerAvatar}
+          allTrainees={currentVictory.allTrainees}
+        />
+      )}
+
       {/* Title Bar */}
       <div className="flex items-center justify-between px-8 py-4">
         <h1 className="text-4xl font-extrabold text-white tracking-tight">
           SCHLAG DEN <span className="text-amber-400">TRAINEE</span>
         </h1>
         <div className="flex items-center gap-6">
-          {punchQueue.length > 0 && (
+          {(punchQueue.length > 0 || victoryQueue.length > 0) && (
             <div className="text-amber-400 text-sm font-bold animate-pulse">
-              +{punchQueue.length} wartend
+              +{punchQueue.length + victoryQueue.length} wartend
             </div>
           )}
           <div className="text-right">
