@@ -59,13 +59,33 @@ export default function FlunkyballField({
       .slice(0, 3);
   }, [games]);
 
-  const hasResults = top3Groups.length > 0;
+  const top3Trainees = useMemo(() => {
+    const winsByTrainee = new Map<string, number>();
+    for (const g of games) {
+      if (g.winner === "trainee") {
+        winsByTrainee.set(g.trainee_id, (winsByTrainee.get(g.trainee_id) ?? 0) + 1);
+      }
+    }
+    return Array.from(winsByTrainee.entries())
+      .map(([id, wins]) => ({
+        name: trainees.find((t) => t.id === id)?.name ?? "?",
+        wins,
+      }))
+      .sort((a, b) => b.wins - a.wins)
+      .slice(0, 3);
+  }, [games, trainees]);
+
+  const hasGroupResults = top3Groups.length > 0;
+  const hasTraineeResults = top3Trainees.length > 0;
+
   const rightEdge = svgWidth - fieldPadding;
   const showOnRight = opponentX < bottleX + (rightEdge - bottleX) * 0.6;
-  const leaderboardX = showOnRight
+  const groupLeaderX = showOnRight
     ? opponentX + playerRadius + 50
     : opponentX - playerRadius - 50;
-  const leaderboardAnchor = showOnRight ? "start" : "end";
+  const groupLeaderAnchor = showOnRight ? "start" : "end";
+
+  const traineeLeaderX = traineeX - playerRadius - 50;
 
   const medals = ["🥇", "🥈", "🥉"];
 
@@ -343,17 +363,49 @@ export default function FlunkyballField({
         />
       </g>
 
+      {/* Top 3 Trainees Leaderboard */}
+      {hasTraineeResults && (
+        <g>
+          {top3Trainees.map((entry, i) => {
+            const rowY = playersStartY + 10 + i * 36;
+            return (
+              <g key={entry.name}>
+                <text
+                  x={traineeLeaderX}
+                  y={rowY}
+                  textAnchor="end"
+                  fill={i === 0 ? "#60a5fa" : i === 1 ? "#d1d5db" : "#cd7f32"}
+                  fontSize="16"
+                  fontWeight="bold"
+                >
+                  {medals[i]} {entry.name}
+                </text>
+                <text
+                  x={traineeLeaderX}
+                  y={rowY + 18}
+                  textAnchor="end"
+                  fill="#9ca3af"
+                  fontSize="13"
+                >
+                  {entry.wins} {entry.wins === 1 ? "Sieg" : "Siege"}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+      )}
+
       {/* Top 3 Groups Leaderboard */}
-      {hasResults && (
+      {hasGroupResults && (
         <g className="transition-all duration-[1500ms] ease-out">
           {top3Groups.map((entry, i) => {
             const rowY = playersStartY + 10 + i * 36;
             return (
               <g key={entry.group}>
                 <text
-                  x={leaderboardX}
+                  x={groupLeaderX}
                   y={rowY}
-                  textAnchor={leaderboardAnchor}
+                  textAnchor={groupLeaderAnchor}
                   fill={i === 0 ? "#fbbf24" : i === 1 ? "#d1d5db" : "#cd7f32"}
                   fontSize="16"
                   fontWeight="bold"
@@ -361,13 +413,9 @@ export default function FlunkyballField({
                   {medals[i]} Gruppe {entry.group}
                 </text>
                 <text
-                  x={
-                    showOnRight
-                      ? leaderboardX
-                      : leaderboardX
-                  }
+                  x={groupLeaderX}
                   y={rowY + 18}
-                  textAnchor={leaderboardAnchor}
+                  textAnchor={groupLeaderAnchor}
                   fill="#9ca3af"
                   fontSize="13"
                 >
