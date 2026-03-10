@@ -1,40 +1,119 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface PunchAnimationProps {
   onComplete: () => void;
 }
 
+function playPunchSound() {
+  try {
+    const ctx = new AudioContext();
+
+    // Low thud
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(80, ctx.currentTime);
+    osc1.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.25);
+    gain1.gain.setValueAtTime(1, ctx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc1.connect(gain1).connect(ctx.destination);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.3);
+
+    // Noise burst for the "smack"
+    const bufferSize = ctx.sampleRate * 0.15;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.7, ctx.currentTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(2000, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.15);
+    noise.connect(filter).connect(noiseGain).connect(ctx.destination);
+    noise.start(ctx.currentTime);
+
+    // Mid-frequency crack
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "square";
+    osc2.frequency.setValueAtTime(300, ctx.currentTime);
+    osc2.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.1);
+    gain2.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+    osc2.connect(gain2).connect(ctx.destination);
+    osc2.start(ctx.currentTime);
+    osc2.stop(ctx.currentTime + 0.12);
+
+    setTimeout(() => ctx.close(), 1000);
+  } catch {
+    // Audio not available
+  }
+}
+
 export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
-  const [phase, setPhase] = useState<"enter" | "impact" | "exit">("enter");
+  const [phase, setPhase] = useState<
+    "appear" | "windup" | "impact" | "exit"
+  >("appear");
+
+  const stableOnComplete = useCallback(onComplete, [onComplete]);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("impact"), 400);
-    const t2 = setTimeout(() => setPhase("exit"), 1200);
-    const t3 = setTimeout(() => onComplete(), 2400);
+    // appear:  Trainee walks in and stands there (1.2s)
+    // windup:  Glove flies in from right (0.6s)
+    // impact:  Hit! Sound + flash (1.0s)
+    // exit:    Trainee flies away (1.2s)
+    const t1 = setTimeout(() => setPhase("windup"), 1200);
+    const t2 = setTimeout(() => {
+      setPhase("impact");
+      playPunchSound();
+    }, 1800);
+    const t3 = setTimeout(() => setPhase("exit"), 2800);
+    const t4 = setTimeout(() => stableOnComplete(), 4000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+      clearTimeout(t4);
     };
-  }, [onComplete]);
+  }, [stableOnComplete]);
+
+  const isHit = phase === "impact" || phase === "exit";
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
+      {/* Dark backdrop */}
+      <div
+        className={`absolute inset-0 transition-all duration-500 ${
+          phase === "appear" || phase === "windup"
+            ? "bg-black/60"
+            : phase === "impact"
+            ? "bg-red-900/50"
+            : "bg-black/30"
+        }`}
+      />
+
       {/* Flash on impact */}
       {phase === "impact" && (
-        <div className="absolute inset-0 bg-red-600/30 animate-pulse" />
+        <div className="absolute inset-0 bg-white/40 animate-ping" style={{ animationDuration: "0.3s" }} />
       )}
 
-      {/* SCHLAG! text */}
+      {/* GESCHLAGEN! text */}
       <div
-        className={`absolute text-center transition-all duration-300 ${
+        className={`absolute text-center transition-all ${
           phase === "impact"
-            ? "scale-150 opacity-100"
+            ? "duration-300 scale-150 opacity-100"
             : phase === "exit"
-            ? "scale-200 opacity-0"
-            : "scale-50 opacity-0"
+            ? "duration-500 scale-200 opacity-0"
+            : "duration-100 scale-50 opacity-0"
         }`}
         style={{ zIndex: 52 }}
       >
@@ -46,10 +125,12 @@ export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
       {/* Boxing glove from right */}
       <div
         className={`absolute transition-all ease-out ${
-          phase === "enter"
-            ? "duration-400 translate-x-[50vw] rotate-0"
+          phase === "appear"
+            ? "duration-100 translate-x-[60vw] rotate-0 opacity-0"
+            : phase === "windup"
+            ? "duration-500 translate-x-[12vw] rotate-12 opacity-100"
             : phase === "impact"
-            ? "duration-200 translate-x-0 -rotate-12"
+            ? "duration-150 -translate-x-[2vw] -rotate-12 opacity-100"
             : "duration-500 -translate-x-[60vw] rotate-45 opacity-0"
         }`}
         style={{ zIndex: 51 }}
@@ -62,16 +143,7 @@ export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
           xmlns="http://www.w3.org/2000/svg"
         >
           {/* Arm */}
-          <rect
-            x="180"
-            y="110"
-            width="120"
-            height="55"
-            rx="20"
-            fill="#d4a574"
-            stroke="#b8956a"
-            strokeWidth="3"
-          />
+          <rect x="180" y="110" width="120" height="55" rx="20" fill="#d4a574" stroke="#b8956a" strokeWidth="3" />
           {/* Wrist band */}
           <rect x="165" y="105" width="25" height="65" rx="6" fill="#ffffff" stroke="#ddd" strokeWidth="2" />
           {/* Glove body */}
@@ -88,20 +160,22 @@ export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
         </svg>
       </div>
 
-      {/* Trainee figure (center, gets hit) */}
+      {/* Trainee figure */}
       <div
         className={`absolute transition-all ${
-          phase === "enter"
-            ? "duration-100 translate-x-0 rotate-0 scale-100"
+          phase === "appear"
+            ? "duration-500 translate-x-0 translate-y-0 rotate-0 scale-100 opacity-100"
+            : phase === "windup"
+            ? "duration-300 translate-x-0 translate-y-0 rotate-0 scale-100 opacity-100"
             : phase === "impact"
-            ? "duration-150 -translate-x-16 rotate-[-15deg] scale-95"
-            : "duration-500 -translate-x-[40vw] rotate-[-45deg] scale-50 opacity-0"
+            ? "duration-100 -translate-x-8 rotate-[-15deg] scale-95 opacity-100"
+            : "duration-700 -translate-x-[50vw] -translate-y-[10vh] rotate-[-60deg] scale-40 opacity-0"
         }`}
         style={{ zIndex: 50 }}
       >
         <svg
-          width="160"
-          height="240"
+          width="180"
+          height="270"
           viewBox="0 0 160 240"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -111,10 +185,21 @@ export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
           {/* Head */}
           <circle cx="80" cy="55" r="38" fill="#fcd34d" stroke="#f59e0b" strokeWidth="3" />
           {/* Eyes */}
-          {phase === "impact" || phase === "exit" ? (
+          {isHit ? (
             <>
-              <text x="62" y="55" fontSize="18" fill="#111">X</text>
-              <text x="85" y="55" fontSize="18" fill="#111">X</text>
+              <text x="60" y="55" fontSize="20" fontWeight="bold" fill="#111">X</text>
+              <text x="86" y="55" fontSize="20" fontWeight="bold" fill="#111">X</text>
+            </>
+          ) : phase === "windup" ? (
+            <>
+              {/* Worried eyes */}
+              <circle cx="67" cy="46" r="6" fill="white" stroke="#111" strokeWidth="2" />
+              <circle cx="93" cy="46" r="6" fill="white" stroke="#111" strokeWidth="2" />
+              <circle cx="69" cy="46" r="3" fill="#111" />
+              <circle cx="95" cy="46" r="3" fill="#111" />
+              {/* Eyebrows up */}
+              <line x1="58" y1="34" x2="72" y2="36" stroke="#111" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="88" y1="36" x2="102" y2="34" stroke="#111" strokeWidth="2.5" strokeLinecap="round" />
             </>
           ) : (
             <>
@@ -123,26 +208,39 @@ export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
             </>
           )}
           {/* Mouth */}
-          {phase === "impact" || phase === "exit" ? (
-            <ellipse cx="80" cy="70" rx="10" ry="6" fill="#111" />
+          {isHit ? (
+            <ellipse cx="80" cy="72" rx="12" ry="7" fill="#111" />
+          ) : phase === "windup" ? (
+            <ellipse cx="80" cy="72" rx="8" ry="5" fill="#111" />
           ) : (
             <path d="M68 68 Q80 78 92 68" stroke="#111" strokeWidth="2.5" fill="none" />
           )}
           {/* "T" on shirt */}
-          <text x="68" y="140" fontSize="28" fontWeight="bold" fill="white">T</text>
+          <text x="68" y="142" fontSize="28" fontWeight="bold" fill="white">T</text>
           {/* Legs */}
           <rect x="55" y="175" width="20" height="50" rx="8" fill="#1e3a5f" stroke="#1a2f4d" strokeWidth="2" />
           <rect x="85" y="175" width="20" height="50" rx="8" fill="#1e3a5f" stroke="#1a2f4d" strokeWidth="2" />
           {/* Arms */}
-          <rect x="25" y="90" width="25" height="14" rx="7" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" />
-          <rect x="110" y="90" width="25" height="14" rx="7" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" />
-          {/* Stars on impact */}
-          {(phase === "impact" || phase === "exit") && (
+          {phase === "windup" ? (
             <>
-              <text x="20" y="30" fontSize="22">⭐</text>
-              <text x="120" y="25" fontSize="18">💫</text>
-              <text x="5" y="60" fontSize="16">✨</text>
-              <text x="135" y="55" fontSize="20">⭐</text>
+              {/* Arms up in defense */}
+              <rect x="28" y="75" width="22" height="14" rx="7" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" transform="rotate(-30 39 82)" />
+              <rect x="110" y="75" width="22" height="14" rx="7" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" transform="rotate(30 121 82)" />
+            </>
+          ) : (
+            <>
+              <rect x="25" y="90" width="25" height="14" rx="7" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" />
+              <rect x="110" y="90" width="25" height="14" rx="7" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" />
+            </>
+          )}
+          {/* Stars on impact */}
+          {isHit && (
+            <>
+              <text x="15" y="28" fontSize="24">⭐</text>
+              <text x="120" y="22" fontSize="20">💫</text>
+              <text x="0" y="62" fontSize="18">✨</text>
+              <text x="138" y="55" fontSize="22">⭐</text>
+              <text x="30" y="15" fontSize="16">💥</text>
             </>
           )}
         </svg>
@@ -151,15 +249,20 @@ export default function PunchAnimation({ onComplete }: PunchAnimationProps) {
       {/* Impact particles */}
       {phase === "impact" && (
         <>
-          {Array.from({ length: 8 }, (_, i) => {
-            const angle = (i / 8) * Math.PI * 2;
-            const tx = Math.cos(angle) * 200;
-            const ty = Math.sin(angle) * 200;
+          {Array.from({ length: 10 }, (_, i) => {
+            const angle = (i / 10) * Math.PI * 2;
+            const dist = 150 + Math.random() * 100;
+            const tx = Math.cos(angle) * dist;
+            const ty = Math.sin(angle) * dist;
+            const size = 8 + Math.random() * 12;
             return (
               <div
                 key={i}
-                className="absolute w-4 h-4 bg-amber-400 rounded-full"
+                className="absolute rounded-full"
                 style={{
+                  width: size,
+                  height: size,
+                  backgroundColor: i % 2 === 0 ? "#fbbf24" : "#ef4444",
                   animation: "particle 0.8s ease-out forwards",
                   ["--tx" as string]: `${tx}px`,
                   ["--ty" as string]: `${ty}px`,
