@@ -1,6 +1,7 @@
 "use client";
 
-import { Config, Trainee } from "@/lib/types";
+import { useMemo } from "react";
+import { Config, Game, Trainee } from "@/lib/types";
 
 interface FlunkyballFieldProps {
   config: Config;
@@ -8,6 +9,7 @@ interface FlunkyballFieldProps {
   trainees: Trainee[];
   traineeWins: number;
   groupWins: number;
+  games: Game[];
 }
 
 export default function FlunkyballField({
@@ -16,6 +18,7 @@ export default function FlunkyballField({
   trainees,
   traineeWins,
   groupWins,
+  games,
 }: FlunkyballFieldProps) {
   const svgWidth = 1200;
   const svgHeight = 600;
@@ -42,6 +45,29 @@ export default function FlunkyballField({
   const playersStartY = bottleY - totalPlayersHeight / 2;
 
   const arrowY = svgHeight - 50;
+
+  const top3Groups = useMemo(() => {
+    const winsByGroup = new Map<number, number>();
+    for (const g of games) {
+      if (g.winner === "group") {
+        winsByGroup.set(g.group_number, (winsByGroup.get(g.group_number) ?? 0) + 1);
+      }
+    }
+    return Array.from(winsByGroup.entries())
+      .map(([group, wins]) => ({ group, wins }))
+      .sort((a, b) => b.wins - a.wins)
+      .slice(0, 3);
+  }, [games]);
+
+  const hasResults = top3Groups.length > 0;
+  const rightEdge = svgWidth - fieldPadding;
+  const showOnRight = opponentX < bottleX + (rightEdge - bottleX) * 0.6;
+  const leaderboardX = showOnRight
+    ? opponentX + playerRadius + 50
+    : opponentX - playerRadius - 50;
+  const leaderboardAnchor = showOnRight ? "start" : "end";
+
+  const medals = ["🥇", "🥈", "🥉"];
 
   return (
     <svg
@@ -316,6 +342,42 @@ export default function FlunkyballField({
           strokeWidth="2"
         />
       </g>
+
+      {/* Top 3 Groups Leaderboard */}
+      {hasResults && (
+        <g className="transition-all duration-[1500ms] ease-out">
+          {top3Groups.map((entry, i) => {
+            const rowY = playersStartY + 10 + i * 36;
+            return (
+              <g key={entry.group}>
+                <text
+                  x={leaderboardX}
+                  y={rowY}
+                  textAnchor={leaderboardAnchor}
+                  fill={i === 0 ? "#fbbf24" : i === 1 ? "#d1d5db" : "#cd7f32"}
+                  fontSize="16"
+                  fontWeight="bold"
+                >
+                  {medals[i]} Gruppe {entry.group}
+                </text>
+                <text
+                  x={
+                    showOnRight
+                      ? leaderboardX
+                      : leaderboardX
+                  }
+                  y={rowY + 18}
+                  textAnchor={leaderboardAnchor}
+                  fill="#9ca3af"
+                  fontSize="13"
+                >
+                  {entry.wins} {entry.wins === 1 ? "Sieg" : "Siege"}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+      )}
 
       {/* Score display */}
       <g>

@@ -229,6 +229,7 @@ export default function BeamerPage() {
           trainees={trainees}
           traineeWins={traineeWins}
           groupWins={groupWins}
+          games={games}
         />
       </div>
 
