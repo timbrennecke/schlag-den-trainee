@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface VictoryAnimationProps {
   onComplete: () => void;
   winnerName: string;
   winnerAvatar: string | null;
-  allTrainees: { name: string; avatarUrl: string | null }[];
 }
 
 function playVictoryFanfare() {
@@ -55,179 +54,53 @@ function playVictoryFanfare() {
   }
 }
 
-function TraineeFigure({
-  name,
-  avatarUrl,
-  headSize,
-  className,
-  isWinner,
-}: {
-  name: string;
-  avatarUrl: string | null;
-  headSize: number;
-  className?: string;
-  isWinner?: boolean;
-}) {
-  const bodyHeight = headSize * 1.1;
-  const bodyWidth = headSize * 0.85;
-  const armWidth = headSize * 0.3;
-  const legWidth = headSize * 0.32;
-  const legHeight = headSize * 0.55;
-  const totalWidth = bodyWidth + armWidth * 2 + 10;
+const KISS_COUNT = 12;
 
-  const shirtColor = isWinner ? "#f59e0b" : "#3b82f6";
-  const pantsColor = "#1e3a5f";
-
-  return (
-    <div
-      className={`flex flex-col items-center ${className ?? ""}`}
-      style={{ width: Math.max(totalWidth, headSize + 20) }}
-    >
-      <svg
-        width={totalWidth}
-        height={headSize + bodyHeight + legHeight + 4}
-        viewBox={`0 0 ${totalWidth} ${headSize + bodyHeight + legHeight + 4}`}
-      >
-        {/* Arms */}
-        <rect
-          x={totalWidth / 2 - bodyWidth / 2 - armWidth}
-          y={headSize + 4}
-          width={armWidth}
-          height={bodyHeight * 0.7}
-          rx={armWidth / 2}
-          fill="#f5c6a0"
-        />
-        <rect
-          x={totalWidth / 2 + bodyWidth / 2}
-          y={headSize + 4}
-          width={armWidth}
-          height={bodyHeight * 0.7}
-          rx={armWidth / 2}
-          fill="#f5c6a0"
-        />
-
-        {/* Body / shirt */}
-        <rect
-          x={totalWidth / 2 - bodyWidth / 2}
-          y={headSize + 2}
-          width={bodyWidth}
-          height={bodyHeight}
-          rx={bodyWidth * 0.2}
-          fill={shirtColor}
-        />
-
-        {/* Legs / pants */}
-        <rect
-          x={totalWidth / 2 - bodyWidth / 2 + 2}
-          y={headSize + bodyHeight}
-          width={legWidth}
-          height={legHeight}
-          rx={legWidth / 3}
-          fill={pantsColor}
-        />
-        <rect
-          x={totalWidth / 2 + bodyWidth / 2 - legWidth - 2}
-          y={headSize + bodyHeight}
-          width={legWidth}
-          height={legHeight}
-          rx={legWidth / 3}
-          fill={pantsColor}
-        />
-
-        {/* Head */}
-        <defs>
-          <clipPath id={`head-${name}`}>
-            <circle
-              cx={totalWidth / 2}
-              cy={headSize / 2}
-              r={headSize / 2 - 2}
-            />
-          </clipPath>
-        </defs>
-        {avatarUrl ? (
-          <image
-            href={avatarUrl}
-            x={totalWidth / 2 - headSize / 2 + 2}
-            y={2}
-            width={headSize - 4}
-            height={headSize - 4}
-            clipPath={`url(#head-${name})`}
-            preserveAspectRatio="xMidYMid slice"
-          />
-        ) : (
-          <circle
-            cx={totalWidth / 2}
-            cy={headSize / 2}
-            r={headSize / 2 - 2}
-            fill="#f5c6a0"
-          />
-        )}
-        <circle
-          cx={totalWidth / 2}
-          cy={headSize / 2}
-          r={headSize / 2 - 1}
-          fill="none"
-          stroke={isWinner ? "#fbbf24" : "#60a5fa"}
-          strokeWidth={2}
-        />
-      </svg>
-      <span
-        className="text-white font-bold text-center truncate w-full mt-0.5"
-        style={{ fontSize: Math.max(10, headSize * 0.24) }}
-      >
-        {name}
-      </span>
-    </div>
-  );
+function generateKisses() {
+  return Array.from({ length: KISS_COUNT }, (_, i) => {
+    const angle = (i / KISS_COUNT) * 360 + (Math.random() - 0.5) * 30;
+    const rad = (angle * Math.PI) / 180;
+    const distance = 120 + Math.random() * 180;
+    const tx = Math.cos(rad) * distance;
+    const ty = Math.sin(rad) * distance - 60;
+    const delay = 0.3 + Math.random() * 2.5;
+    const size = 24 + Math.random() * 20;
+    return { tx, ty, delay, size, angle };
+  });
 }
 
 export default function VictoryAnimation({
   onComplete,
   winnerName,
   winnerAvatar,
-  allTrainees,
 }: VictoryAnimationProps) {
-  const [phase, setPhase] = useState<
-    "build" | "lift" | "celebrate" | "fade"
-  >("build");
-
+  const [phase, setPhase] = useState<"appear" | "jump" | "fade">("appear");
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
-
-  const others = useMemo(
-    () => allTrainees.filter((t) => t.name !== winnerName),
-    [allTrainees, winnerName]
-  );
-
-  // Build pyramid rows from the others
-  const pyramidRows = useMemo(() => {
-    const rows: { name: string; avatarUrl: string | null }[][] = [];
-    const items = [...others];
-    let rowSize = Math.max(2, Math.ceil(items.length / 2));
-    while (items.length > 0) {
-      rows.unshift(items.splice(0, rowSize));
-      rowSize = Math.max(1, rowSize - 1);
-    }
-    return rows;
-  }, [others]);
+  const kissesRef = useRef(generateKisses());
 
   useEffect(() => {
     playVictoryFanfare();
-    const t1 = setTimeout(() => setPhase("lift"), 1200);
-    const t2 = setTimeout(() => setPhase("celebrate"), 2200);
-    const t3 = setTimeout(() => setPhase("fade"), 5000);
-    const t4 = setTimeout(() => onCompleteRef.current(), 6000);
+    const t1 = setTimeout(() => setPhase("jump"), 800);
+    const t2 = setTimeout(() => setPhase("fade"), 5000);
+    const t3 = setTimeout(() => onCompleteRef.current(), 6000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
-      clearTimeout(t4);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const showCrown = phase === "celebrate" || phase === "fade";
-  const showConfetti = phase === "celebrate";
+  const isJumping = phase === "jump" || phase === "fade";
+  const headSize = 110;
+  const bodyHeight = headSize * 1.1;
+  const bodyWidth = headSize * 0.85;
+  const armWidth = headSize * 0.3;
+  const legWidth = headSize * 0.32;
+  const legHeight = headSize * 0.55;
+  const totalWidth = bodyWidth + armWidth * 2 + 10;
+  const totalHeight = headSize + bodyHeight + legHeight + 4;
 
   return (
     <div
@@ -235,142 +108,214 @@ export default function VictoryAnimation({
         phase === "fade" ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-gradient-to-b from-blue-950/90 via-black/80 to-blue-950/90" />
 
-      {/* Confetti */}
-      {showConfetti &&
-        Array.from({ length: 40 }, (_, i) => {
-          const x = Math.random() * 100;
-          const delay = Math.random() * 2;
-          const dur = 2 + Math.random() * 2;
-          const colors = [
-            "#fbbf24",
-            "#3b82f6",
-            "#ef4444",
-            "#22c55e",
-            "#a855f7",
-            "#f97316",
-          ];
-          const color = colors[i % colors.length];
-          const size = 6 + Math.random() * 10;
-          return (
-            <div
-              key={i}
-              className="absolute rounded-sm"
-              style={{
-                left: `${x}%`,
-                top: -20,
-                width: size,
-                height: size * 0.6,
-                backgroundColor: color,
-                animation: `confetti-fall ${dur}s ${delay}s ease-in forwards`,
-                transform: `rotate(${Math.random() * 360}deg)`,
-              }}
-            />
-          );
-        })}
-
-      {/* Spotlight beams */}
-      {(phase === "celebrate" || phase === "lift") && (
-        <>
-          <div
-            className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 opacity-20"
-            style={{
-              borderLeft: "120px solid transparent",
-              borderRight: "120px solid transparent",
-              borderTop: "500px solid #fbbf24",
-            }}
-          />
-        </>
+      {/* Spotlight */}
+      {isJumping && (
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 opacity-20"
+          style={{
+            borderLeft: "150px solid transparent",
+            borderRight: "150px solid transparent",
+            borderTop: "600px solid #fbbf24",
+          }}
+        />
       )}
 
       {/* Title */}
       <div
-        className={`relative z-10 text-center mb-8 transition-all duration-700 ${
-          phase === "build"
+        className={`relative z-10 text-center mb-10 transition-all duration-700 ${
+          phase === "appear"
             ? "opacity-0 -translate-y-10"
             : "opacity-100 translate-y-0"
         }`}
       >
         <p className="text-6xl font-black text-white drop-shadow-[0_0_30px_rgba(59,130,246,0.6)] tracking-wider">
-          <span className="text-amber-400">{winnerName}</span> gewinnt eine Runde!
+          <span className="text-amber-400">{winnerName}</span> gewinnt eine
+          Runde!
         </p>
       </div>
 
-      {/* Pyramid */}
-      <div className="relative z-10 flex flex-col items-center gap-2">
-        {/* Winner on top */}
-        <div
-          className={`transition-all duration-1000 ${
-            phase === "build"
-              ? "opacity-0 translate-y-20 scale-75"
-              : phase === "lift"
-              ? "opacity-100 translate-y-0 scale-110"
-              : "opacity-100 translate-y-0 scale-110"
-          }`}
-        >
-          <div className="relative">
-            {showCrown && (
-              <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-4xl animate-bounce">
-                👑
-              </div>
-            )}
+      {/* Winner figure + kisses container */}
+      <div
+        className={`relative z-10 transition-all duration-700 ${
+          phase === "appear"
+            ? "opacity-0 translate-y-32 scale-75"
+            : "opacity-100 translate-y-0 scale-100"
+        }`}
+      >
+        {/* Kisses flying out */}
+        {isJumping &&
+          kissesRef.current.map((k, i) => (
             <div
-              className={`transition-all duration-500 ${
-                showCrown
-                  ? "drop-shadow-[0_0_30px_rgba(251,191,36,0.5)]"
-                  : ""
-              }`}
+              key={i}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={{
+                animation: `kiss-fly 1.4s ${k.delay}s ease-out forwards`,
+                opacity: 0,
+                ["--kiss-tx" as string]: `${k.tx}px`,
+                ["--kiss-ty" as string]: `${k.ty}px`,
+                fontSize: k.size,
+              }}
             >
-              <TraineeFigure
-                name={winnerName}
-                avatarUrl={winnerAvatar}
-                headSize={90}
-                isWinner
-              />
+              💋
             </div>
-          </div>
-        </div>
+          ))}
 
-        {/* Pyramid rows (bottom-up, rendered top-down) */}
-        {pyramidRows.map((row, rowIdx) => (
-          <div
-            key={rowIdx}
-            className={`flex items-end justify-center gap-3 transition-all duration-700 ${
-              phase === "build"
-                ? "opacity-0 translate-y-16"
-                : "opacity-100 translate-y-0"
-            }`}
-            style={{
-              transitionDelay:
-                phase === "build"
-                  ? "0ms"
-                  : `${(pyramidRows.length - rowIdx) * 200}ms`,
-            }}
+        {/* Jumping figure */}
+        <div className={isJumping ? "animate-victory-jump" : ""}>
+          <svg
+            width={totalWidth}
+            height={totalHeight}
+            viewBox={`0 0 ${totalWidth} ${totalHeight}`}
           >
-            {row.map((t, i) => (
-              <TraineeFigure
-                key={`${rowIdx}-${i}`}
-                name={t.name}
-                avatarUrl={t.avatarUrl}
-                headSize={60}
+            {/* Arms raised */}
+            <rect
+              x={totalWidth / 2 - bodyWidth / 2 - armWidth - 4}
+              y={headSize - 10}
+              width={armWidth}
+              height={bodyHeight * 0.7}
+              rx={armWidth / 2}
+              fill="#f5c6a0"
+              className={isJumping ? "animate-wave-left" : ""}
+              style={{ transformOrigin: `${totalWidth / 2 - bodyWidth / 2}px ${headSize + 4}px` }}
+            />
+            <rect
+              x={totalWidth / 2 + bodyWidth / 2 + 4}
+              y={headSize - 10}
+              width={armWidth}
+              height={bodyHeight * 0.7}
+              rx={armWidth / 2}
+              fill="#f5c6a0"
+              className={isJumping ? "animate-wave-right" : ""}
+              style={{ transformOrigin: `${totalWidth / 2 + bodyWidth / 2}px ${headSize + 4}px` }}
+            />
+
+            {/* Body / gold shirt */}
+            <rect
+              x={totalWidth / 2 - bodyWidth / 2}
+              y={headSize + 2}
+              width={bodyWidth}
+              height={bodyHeight}
+              rx={bodyWidth * 0.2}
+              fill="#f59e0b"
+            />
+
+            {/* Legs */}
+            <rect
+              x={totalWidth / 2 - bodyWidth / 2 + 2}
+              y={headSize + bodyHeight}
+              width={legWidth}
+              height={legHeight}
+              rx={legWidth / 3}
+              fill="#1e3a5f"
+            />
+            <rect
+              x={totalWidth / 2 + bodyWidth / 2 - legWidth - 2}
+              y={headSize + bodyHeight}
+              width={legWidth}
+              height={legHeight}
+              rx={legWidth / 3}
+              fill="#1e3a5f"
+            />
+
+            {/* Head */}
+            <defs>
+              <clipPath id="winner-head-clip">
+                <circle
+                  cx={totalWidth / 2}
+                  cy={headSize / 2}
+                  r={headSize / 2 - 2}
+                />
+              </clipPath>
+            </defs>
+            {winnerAvatar ? (
+              <image
+                href={winnerAvatar}
+                x={totalWidth / 2 - headSize / 2 + 2}
+                y={2}
+                width={headSize - 4}
+                height={headSize - 4}
+                clipPath="url(#winner-head-clip)"
+                preserveAspectRatio="xMidYMid slice"
               />
-            ))}
-          </div>
-        ))}
+            ) : (
+              <circle
+                cx={totalWidth / 2}
+                cy={headSize / 2}
+                r={headSize / 2 - 2}
+                fill="#f5c6a0"
+              />
+            )}
+            <circle
+              cx={totalWidth / 2}
+              cy={headSize / 2}
+              r={headSize / 2 - 1}
+              fill="none"
+              stroke="#fbbf24"
+              strokeWidth={3}
+            />
+          </svg>
+        </div>
       </div>
 
       <style jsx>{`
-        @keyframes confetti-fall {
+        @keyframes kiss-fly {
           0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(100vh) rotate(720deg);
+            transform: translate(-50%, -50%) scale(0);
             opacity: 0;
           }
+          20% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+          }
+          100% {
+            transform: translate(
+                calc(-50% + var(--kiss-tx)),
+                calc(-50% + var(--kiss-ty))
+              )
+              scale(0.4);
+            opacity: 0;
+          }
+        }
+        @keyframes victory-jump {
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          40% {
+            transform: translateY(-40px);
+          }
+          60% {
+            transform: translateY(-40px);
+          }
+        }
+        :global(.animate-victory-jump) {
+          animation: victory-jump 0.6s ease-in-out infinite;
+        }
+        @keyframes wave-left {
+          0%,
+          100% {
+            transform: rotate(0deg);
+          }
+          50% {
+            transform: rotate(-25deg);
+          }
+        }
+        @keyframes wave-right {
+          0%,
+          100% {
+            transform: rotate(0deg);
+          }
+          50% {
+            transform: rotate(25deg);
+          }
+        }
+        :global(.animate-wave-left) {
+          animation: wave-left 0.5s ease-in-out infinite;
+        }
+        :global(.animate-wave-right) {
+          animation: wave-right 0.5s ease-in-out infinite 0.15s;
         }
       `}</style>
     </div>

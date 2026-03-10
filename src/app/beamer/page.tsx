@@ -17,7 +17,6 @@ interface PunchEntry {
 interface VictoryEntry {
   winnerName: string;
   winnerAvatar: string | null;
-  allTrainees: { name: string; avatarUrl: string | null }[];
 }
 
 function findLosingTrainee(
@@ -41,10 +40,6 @@ function findWinningTrainee(
   return {
     winnerName: winner.name,
     winnerAvatar: winner.avatar_url,
-    allTrainees: trainees.map((t) => ({
-      name: t.name,
-      avatarUrl: t.avatar_url,
-    })),
   };
 }
 
@@ -164,7 +159,6 @@ export default function BeamerPage() {
           onComplete={dismissVictory}
           winnerName={currentVictory.winnerName}
           winnerAvatar={currentVictory.winnerAvatar}
-          allTrainees={currentVictory.allTrainees}
         />
       )}
 
