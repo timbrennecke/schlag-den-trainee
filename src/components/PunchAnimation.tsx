@@ -8,6 +8,49 @@ interface PunchAnimationProps {
   traineeName?: string;
 }
 
+function playAnnouncementSound() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+
+    // Dramatic rising tone (dun-dun-DUUUN)
+    const notes = [
+      { freq: 220, start: 0, dur: 0.18, vol: 0.5 },
+      { freq: 260, start: 0.22, dur: 0.18, vol: 0.6 },
+      { freq: 370, start: 0.5, dur: 0.6, vol: 0.8 },
+    ];
+
+    for (const note of notes) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(note.freq, t + note.start);
+      gain.gain.setValueAtTime(0, t + note.start);
+      gain.gain.linearRampToValueAtTime(note.vol, t + note.start + 0.03);
+      gain.gain.setValueAtTime(note.vol, t + note.start + note.dur * 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + note.start + note.dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t + note.start);
+      osc.stop(t + note.start + note.dur);
+    }
+
+    // Sub bass on final note
+    const sub = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    sub.type = "sine";
+    sub.frequency.setValueAtTime(90, t + 0.5);
+    subGain.gain.setValueAtTime(0.6, t + 0.5);
+    subGain.gain.exponentialRampToValueAtTime(0.01, t + 1.1);
+    sub.connect(subGain).connect(ctx.destination);
+    sub.start(t + 0.5);
+    sub.stop(t + 1.1);
+
+    setTimeout(() => ctx.close(), 2000);
+  } catch {
+    // Audio not available
+  }
+}
+
 function playPunchSound() {
   try {
     const ctx = new AudioContext();
@@ -74,6 +117,7 @@ export default function PunchAnimation({
   onCompleteRef.current = onComplete;
 
   useEffect(() => {
+    playAnnouncementSound();
     const t1 = setTimeout(() => setPhase("windup"), 1200);
     const t2 = setTimeout(() => {
       setPhase("impact");
