@@ -11,6 +11,7 @@ import {
   deleteAllGames,
   uploadAvatar,
   updateTrainee,
+  reorderTrainees,
 } from "@/lib/api";
 import { calculateOpponentDistance } from "@/lib/algorithm";
 import Link from "next/link";
@@ -91,6 +92,21 @@ export default function AdminPage() {
       showMessage(`Bild fuer ${trainee.name} gespeichert!`);
     } catch {
       showMessage("Fehler beim Hochladen!");
+    }
+  };
+
+  const handleMoveTrainee = async (index: number, direction: "up" | "down") => {
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= trainees.length) return;
+    const reordered = [...trainees];
+    [reordered[index], reordered[swapIndex]] = [reordered[swapIndex], reordered[index]];
+    setTrainees(reordered);
+    try {
+      await reorderTrainees(reordered.map((t) => t.id));
+      await loadData();
+    } catch {
+      showMessage("Fehler beim Umsortieren!");
+      await loadData();
     }
   };
 
@@ -297,18 +313,42 @@ export default function AdminPage() {
               Hinzufuegen
             </button>
           </div>
+          {trainees.length > 1 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-800">
+              Die Reihenfolge bestimmt die Startgruppe: Trainee an Position 1 startet gegen Gruppe 1, Position 2 gegen Gruppe 2, usw.
+              In jeder weiteren Runde ruecken die Gruppen eins weiter.
+            </div>
+          )}
           {trainees.length === 0 ? (
             <p className="text-gray-500 text-sm">
               Noch keine Trainees hinzugefuegt.
             </p>
           ) : (
             <ul className="divide-y divide-gray-100">
-              {trainees.map((t) => (
+              {trainees.map((t, index) => (
                 <li
                   key={t.id}
                   className="flex items-center justify-between py-3"
                 >
                   <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => handleMoveTrainee(index, "up")}
+                        disabled={index === 0}
+                        className="text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-default cursor-pointer text-xs leading-none"
+                        title="Nach oben"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleMoveTrainee(index, "down")}
+                        disabled={index === trainees.length - 1}
+                        className="text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-default cursor-pointer text-xs leading-none"
+                        title="Nach unten"
+                      >
+                        ▼
+                      </button>
+                    </div>
                     {t.avatar_url ? (
                       <img
                         src={t.avatar_url}
@@ -317,13 +357,13 @@ export default function AdminPage() {
                       />
                     ) : (
                       <span className="w-10 h-10 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-sm font-bold">
-                        {t.sort_order}
+                        {index + 1}
                       </span>
                     )}
                     <div>
                       <span className="text-gray-900 font-medium">{t.name}</span>
-                      <span className="text-gray-400 text-sm ml-2">
-                        vs. alle {trainees.length} Gruppen
+                      <span className="text-amber-600 text-sm ml-2">
+                        startet vs. Gruppe {index + 1}
                       </span>
                     </div>
                   </div>

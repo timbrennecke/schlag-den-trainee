@@ -48,7 +48,7 @@ export async function addTrainee(
 
 export async function updateTrainee(
   id: string,
-  updates: Partial<Pick<Trainee, "name" | "avatar_url">>
+  updates: Partial<Pick<Trainee, "name" | "avatar_url" | "sort_order">>
 ): Promise<Trainee> {
   const { data, error } = await supabase
     .from("trainees")
@@ -58,6 +58,18 @@ export async function updateTrainee(
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function reorderTrainees(orderedIds: string[]): Promise<void> {
+  const updates = orderedIds.map((id, index) =>
+    supabase
+      .from("trainees")
+      .update({ sort_order: index + 1 })
+      .eq("id", id)
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }
 
 export async function deleteTrainee(id: string): Promise<void> {

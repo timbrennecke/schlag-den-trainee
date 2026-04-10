@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { Trainee, Game } from "@/lib/types";
 import {
   fetchTrainees,
+  fetchGames,
   fetchGamesByTrainee,
   submitGameResult,
 } from "@/lib/api";
 import Link from "next/link";
 
-type Phase = "select" | "selectStartGroup" | "play" | "done";
+type Phase = "select" | "play" | "done";
 
 function getGroupRotation(
   startGroup: number,
@@ -32,13 +33,45 @@ export default function InputPage() {
   const [lastResult, setLastResult] = useState<"trainee" | "group" | null>(
     null
   );
+  const [roundLocked, setRoundLocked] = useState(false);
+  const [stillPlaying, setStillPlaying] = useState<string[]>([]);
 
   const totalGroups = trainees.length;
-  const allGroupNumbers = trainees.map((t) => t.sort_order);
 
   useEffect(() => {
     fetchTrainees().then(setTrainees);
   }, []);
+
+  const checkRoundLock = useCallback(
+    async (myGamesCount: number) => {
+      if (trainees.length < 2) { setRoundLocked(false); setStillPlaying([]); return false; }
+      const allGames = await fetchGames();
+      const counts = new Map<string, number>();
+      for (const t of trainees) counts.set(t.id, 0);
+      for (const g of allGames) counts.set(g.trainee_id, (counts.get(g.trainee_id) ?? 0) + 1);
+      const globalMin = Math.min(...counts.values());
+      const locked = myGamesCount > globalMin;
+      if (locked) {
+        const behind = trainees
+          .filter((t) => (counts.get(t.id) ?? 0) === globalMin)
+          .map((t) => t.name);
+        setStillPlaying(behind);
+      } else {
+        setStillPlaying([]);
+      }
+      setRoundLocked(locked);
+      return locked;
+    },
+    [trainees]
+  );
+
+  useEffect(() => {
+    if (!roundLocked || phase !== "play") return;
+    const interval = setInterval(() => {
+      checkRoundLock(existingGames.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [roundLocked, phase, existingGames.length, checkRoundLock]);
 
   const selectTrainee = useCallback(
     async (trainee: Trainee) => {
@@ -49,27 +82,27 @@ export default function InputPage() {
 
       if (games.length >= trainees.length) {
         setPhase("done");
+        return;
+      }
+
+      const traineeIndex = trainees.findIndex((t) => t.id === trainee.id);
+      const startGroup = trainees[traineeIndex]?.sort_order ?? 1;
+      const rotation = getGroupRotation(startGroup, trainees.map((t) => t.sort_order));
+      setGroupRotation(rotation);
+
+      const playedGroups = new Set(games.map((g) => g.group_number));
+      const nextGroup = rotation.find((gn) => !playedGroups.has(gn));
+
+      if (nextGroup === undefined) {
+        setPhase("done");
       } else {
-        setPhase("selectStartGroup");
+        setCurrentGroupNumber(nextGroup);
+        setPhase("play");
+        await checkRoundLock(games.length);
       }
     },
-    [trainees]
+    [trainees, checkRoundLock]
   );
-
-  const startWithGroup = (startGroup: number) => {
-    const rotation = getGroupRotation(startGroup, allGroupNumbers);
-    setGroupRotation(rotation);
-
-    const playedGroups = new Set(existingGames.map((g) => g.group_number));
-    const nextGroup = rotation.find((gn) => !playedGroups.has(gn));
-
-    if (nextGroup === undefined) {
-      setPhase("done");
-    } else {
-      setCurrentGroupNumber(nextGroup);
-      setPhase("play");
-    }
-  };
 
   const handleResult = async (winner: "trainee" | "group") => {
     if (!selectedTrainee) return;
@@ -84,7 +117,7 @@ export default function InputPage() {
       const updatedGames = [...existingGames, game];
       setExistingGames(updatedGames);
 
-      setTimeout(() => {
+      setTimeout(async () => {
         const playedGroups = new Set(updatedGames.map((g) => g.group_number));
         const nextGroup = groupRotation.find((gn) => !playedGroups.has(gn));
 
@@ -93,6 +126,7 @@ export default function InputPage() {
         } else {
           setCurrentGroupNumber(nextGroup);
           setLastResult(null);
+          await checkRoundLock(updatedGames.length);
         }
       }, 1500);
     } catch {
@@ -153,60 +187,6 @@ export default function InputPage() {
     );
   }
 
-  /* ───── Phase: Startgruppe waehlen ───── */
-  if (phase === "selectStartGroup") {
-    const playedGroups = new Set(existingGames.map((g) => g.group_number));
-
-    return (
-      <div className="min-h-screen bg-gray-900 text-white p-6">
-        <div className="max-w-md mx-auto">
-          <button
-            onClick={goBack}
-            className="text-gray-400 hover:text-white text-sm mb-4 cursor-pointer"
-          >
-            ← Zurueck
-          </button>
-          <h1 className="text-xl font-bold text-center mb-2">
-            {selectedTrainee?.name}
-          </h1>
-          <p className="text-center text-gray-400 mb-6">
-            Gegen welche Gruppe startest du?
-          </p>
-          <p className="text-center text-gray-500 text-xs mb-4">
-            Von hier aus wird aufwaerts durchgezaehlt (z.B. 3 → 4 → 5 → 1 → 2)
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            {allGroupNumbers.map((gn) => {
-              const alreadyPlayed = playedGroups.has(gn);
-              return (
-                <button
-                  key={gn}
-                  onClick={() => startWithGroup(gn)}
-                  className={`p-4 rounded-xl text-center transition-all cursor-pointer active:scale-[0.97] ${
-                    alreadyPlayed
-                      ? "bg-gray-800 border-2 border-gray-700 opacity-60"
-                      : "bg-amber-600 hover:bg-amber-500 border-2 border-amber-500"
-                  }`}
-                >
-                  <p className="text-2xl font-bold">{gn}</p>
-                  <p className="text-sm mt-1">
-                    {alreadyPlayed ? "Bereits gespielt" : `Gruppe ${gn}`}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-          {existingGames.length > 0 && (
-            <p className="text-center text-gray-500 text-xs mt-4">
-              {existingGames.length} / {totalGroups} Spiele bereits gespielt
-              — bereits gespielte Gruppen werden uebersprungen
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   /* ───── Phase: Fertig ───── */
   if (phase === "done") {
     const traineeWins = existingGames.filter(
@@ -244,7 +224,7 @@ export default function InputPage() {
           </div>
 
           <div className="mt-6 space-y-2 max-w-xs mx-auto">
-            {(groupRotation.length > 0 ? groupRotation : allGroupNumbers).map(
+            {groupRotation.map(
               (groupNum) => {
                 const game = existingGames.find(
                   (g) => g.group_number === groupNum
@@ -342,21 +322,52 @@ export default function InputPage() {
 
       {/* Buttons */}
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
-        <button
-          onClick={() => handleResult("trainee")}
-          disabled={submitting || lastResult !== null}
-          className="w-full max-w-sm h-32 bg-blue-600 hover:bg-blue-500 active:scale-[0.97] disabled:opacity-50 rounded-2xl text-2xl font-bold transition-all cursor-pointer"
-        >
-          Ich habe gewonnen
-        </button>
-        <div className="text-gray-600 text-sm font-medium">— oder —</div>
-        <button
-          onClick={() => handleResult("group")}
-          disabled={submitting || lastResult !== null}
-          className="w-full max-w-sm h-32 bg-amber-600 hover:bg-amber-500 active:scale-[0.97] disabled:opacity-50 rounded-2xl text-2xl font-bold transition-all cursor-pointer"
-        >
-          Gegner hat gewonnen
-        </button>
+        {roundLocked && lastResult === null ? (
+          <div className="text-center space-y-4 max-w-sm">
+            <div className="text-4xl animate-pulse">⏳</div>
+            <p className="text-xl font-bold text-gray-300">
+              Warte auf die anderen Trainees...
+            </p>
+            <p className="text-gray-500 text-sm">
+              Die naechste Runde beginnt, sobald alle Trainees ihre aktuelle Runde beendet haben.
+            </p>
+            {stillPlaying.length > 0 && (
+              <div className="mt-4 bg-gray-800 rounded-xl p-4">
+                <p className="text-gray-400 text-xs uppercase tracking-wider mb-2">
+                  Spielen noch
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {stillPlaying.map((name) => (
+                    <span
+                      key={name}
+                      className="px-3 py-1 bg-amber-900/40 text-amber-300 rounded-full text-sm font-medium"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => handleResult("trainee")}
+              disabled={submitting || lastResult !== null}
+              className="w-full max-w-sm h-32 bg-blue-600 hover:bg-blue-500 active:scale-[0.97] disabled:opacity-50 rounded-2xl text-2xl font-bold transition-all cursor-pointer"
+            >
+              Ich habe gewonnen
+            </button>
+            <div className="text-gray-600 text-sm font-medium">— oder —</div>
+            <button
+              onClick={() => handleResult("group")}
+              disabled={submitting || lastResult !== null}
+              className="w-full max-w-sm h-32 bg-amber-600 hover:bg-amber-500 active:scale-[0.97] disabled:opacity-50 rounded-2xl text-2xl font-bold transition-all cursor-pointer"
+            >
+              Gegner hat gewonnen
+            </button>
+          </>
+        )}
       </div>
 
       {/* Score summary */}

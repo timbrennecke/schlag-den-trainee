@@ -7,6 +7,7 @@ import { usePolling } from "@/hooks/usePolling";
 import FlunkyballField from "@/components/FlunkyballField";
 import PunchAnimation from "@/components/PunchAnimation";
 import VictoryAnimation from "@/components/VictoryAnimation";
+import RoundTransition from "@/components/RoundTransition";
 import { Game, Trainee } from "@/lib/types";
 
 interface PunchEntry {
@@ -58,6 +59,10 @@ export default function BeamerPage() {
   );
   const victoryKeyRef = useRef(0);
 
+  const lastShownRoundRef = useRef<number | null>(null);
+  const [roundTransition, setRoundTransition] = useState<number | null>(null);
+  const pendingRoundRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!data) return;
 
@@ -88,7 +93,40 @@ export default function BeamerPage() {
     }
 
     seenGameIdsRef.current = allCurrentIds;
+
+    if (trainees.length > 0) {
+      const gamesPerTrainee = new Map<string, number>();
+      for (const t of trainees) gamesPerTrainee.set(t.id, 0);
+      for (const g of games) {
+        gamesPerTrainee.set(g.trainee_id, (gamesPerTrainee.get(g.trainee_id) ?? 0) + 1);
+      }
+      const completedRounds = Math.min(...gamesPerTrainee.values());
+
+      if (lastShownRoundRef.current === null) {
+        lastShownRoundRef.current = completedRounds;
+      } else if (
+        completedRounds > lastShownRoundRef.current &&
+        completedRounds < trainees.length
+      ) {
+        pendingRoundRef.current = completedRounds + 1;
+        lastShownRoundRef.current = completedRounds;
+      }
+    }
   }, [data]);
+
+  // Show pending round transition only after all animation queues are empty
+  useEffect(() => {
+    if (
+      pendingRoundRef.current !== null &&
+      currentPunch === null &&
+      currentVictory === null &&
+      punchQueue.length === 0 &&
+      victoryQueue.length === 0
+    ) {
+      setRoundTransition(pendingRoundRef.current);
+      pendingRoundRef.current = null;
+    }
+  }, [currentPunch, currentVictory, punchQueue, victoryQueue]);
 
   // Punch queue processor
   useEffect(() => {
@@ -121,6 +159,10 @@ export default function BeamerPage() {
     setCurrentVictory(null);
   }, []);
 
+  const dismissRoundTransition = useCallback(() => {
+    setRoundTransition(null);
+  }, []);
+
   if (!data) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -136,6 +178,15 @@ export default function BeamerPage() {
   const groupWins = games.filter((g) => g.winner === "group").length;
   const totalGames = trainees.length * trainees.length;
   const gamesPlayed = games.length;
+
+  let currentRound = 1;
+  if (trainees.length > 0) {
+    const gpt = new Map<string, number>();
+    for (const t of trainees) gpt.set(t.id, 0);
+    for (const g of games) gpt.set(g.trainee_id, (gpt.get(g.trainee_id) ?? 0) + 1);
+    currentRound = Math.min(...gpt.values()) + 1;
+  }
+
   const opponentDistance = calculateOpponentDistance(
     config,
     trainees.length,
@@ -189,6 +240,14 @@ export default function BeamerPage() {
         />
       )}
 
+      {roundTransition !== null && (
+        <RoundTransition
+          trainees={trainees}
+          roundNumber={roundTransition}
+          onDismiss={dismissRoundTransition}
+        />
+      )}
+
       {/* Title Bar */}
       <div className="flex items-center px-8 py-4 gap-6">
         <h1 className="text-4xl font-extrabold text-white tracking-tight shrink-0">
@@ -211,6 +270,14 @@ export default function BeamerPage() {
             <div className="text-amber-400 text-sm font-bold animate-pulse">
               +{punchQueue.length + victoryQueue.length} wartend
             </div>
+          )}
+          {trainees.length > 0 && currentRound <= trainees.length && (
+            <button
+              onClick={() => setRoundTransition(roundTransition !== null ? null : currentRound)}
+              className="px-3 py-1.5 text-sm font-bold rounded-lg cursor-pointer transition-colors bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700"
+            >
+              Runde {currentRound}
+            </button>
           )}
           <div className="text-right">
             <span className="text-gray-500 text-sm block">Fortschritt</span>
